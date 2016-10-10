@@ -1,0 +1,445 @@
+#!/bin/bash
+
+#NOTES:
+#	cp requires write permissions
+#	ls requires read permissions
+
+#TODO: how should I accommodate people submitting using longer file paths?
+
+declare -A DEADLINE
+declare -A HWDEADLINE
+declare -A VALID_CLASSES
+declare -A VALID_ASSIGNMENTS
+
+#each deadline element corresponds to a different section, as
+#seen below. The value for each is the date and time for when
+#the next assignment is due, whether it is the homework or the 
+#lab. For now, there is no prelab deadline.
+
+#The date value is given as follows: YYYY-MM-DD HH:MM:SS, where
+#the time is military CST. Check the environment to make sure of this. 
+
+#Notice that some of the sections have garbage DTTMs (matching NEG further down).
+#That means that there is no section for that letter/class combination. 
+#Keep the NULLed DTTMs the same as the NEG one; this is used for later checks.
+
+#TODO: automate the date changes 
+
+#TODO: change the keys to the right values
+#TODO TODO TODO EVERY WEEK!!!!!!!
+DEADLINE[CS1050A]=$(date --date="2016-09-26 10:30:00" +%s)
+DEADLINE[CS1050B]=$(date --date="2016-09-28 10:30:00" +%s)
+DEADLINE[CS1050C]=$(date --date="2016-09-30 12:30:00" +%s)
+DEADLINE[CS1050D]=$(date --date="2016-09-26 17:30:00" +%s)
+DEADLINE[CS1050E]=$(date --date="2016-09-27 13:30:00" +%s)
+DEADLINE[CS1050F]=$(date --date="2016-09-29 12:30:00" +%s)
+DEADLINE[CS1050G]=$(date --date="2016-09-29 14:30:00" +%s)
+DEADLINE[CS1050H]=$(date --date="2016-09-27 17:30:00" +%s)
+DEADLINE[CS1050I]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS1050J]=$(date --date="2016-09-28 16:30:00" +%s)
+DEADLINE[CS1050K]=$(date --date="2016-09-30 16:30:00" +%s)
+DEADLINE[CS1050L]=$(date --date="2016-09-28 13:30:00" +%s)
+DEADLINE[CS1050M]=$(date --date="2016-09-27 17:30:00" +%s)
+
+DEADLINE[CS2050A]=$(date --date="2016-09-29 10:30:00" +%s)
+DEADLINE[CS2050B]=$(date --date="2016-09-27 17:30:00" +%s)
+DEADLINE[CS2050C]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050D]=$(date --date="2016-09-27 14:30:00" +%s)
+DEADLINE[CS2050E]=$(date --date="2016-09-30 12:30:00" +%s)
+DEADLINE[CS2050F]=$(date --date="2016-09-28 14:30:00" +%s)
+DEADLINE[CS2050G]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050H]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050I]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050J]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050K]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050L]=$(date --date="1999-01-01 11:11:11" +%s)
+DEADLINE[CS2050M]=$(date --date="1999-01-01 11:11:11" +%s)
+
+#Default value for person not in section group
+DEADLINE[NEG]=$(date --date="1999-01-01 11:11:11" +%s)
+
+#Expand this section to include other classes that might use this script/system.
+#TODO: do other classes want this? (MODULARIZE DOWN THE ROAD; KEEP IT SIMPLE FOR NOW)
+VALID_CLASSES[0]="CS2050"
+VALID_CLASSES[1]="CS1050"
+
+#Manually changed to include what the upcoming assignments will be submitted
+#TODO: automate this?
+#For now, just uncomment/add and comment out/delete pieces that aren't needed. 
+#Don't crowd it up with all lab/HW/prelab combinations. We'll automate this later. 
+VALID_ASSIGNMENTS[0]="LAB7"
+VALID_ASSIGNMENTS[1]="PRELAB7"
+VALID_ASSIGNMENTS[2]="HW2"
+
+#Change these DTTMs to be the deadline for the HW. 
+#As soon as it's changed, the window opens for submission,
+#assuming the assignment key was placed above. 
+HWDEADLINE[CS1050]=$(date --date="2016-09-09 17:00:00" +%s)
+HWDEADLINE[CS2050]=$(date --date="2016-09-09 17:00:00" +%s)
+
+#So. Many. Parameters.
+LOGPATH="/home/submissions/cs_log.log"
+USER=$(whoami)
+CLASS=$1
+ASSIGNMENT=$2
+FILE=$3
+TIMESTAMP=$(date +"%D %l:%M:%S %p")
+SECTION=$(grep "$USER" /etc/group | awk -F ':' '{print $1}')
+SAVEPATH="/null/null"
+METADATA=$(date +"date_%m_%d_time_%H_%M")
+
+#TODO: change password periodically
+override ()
+{
+	echo "!!!!!!!!!TA OVERRIDE DETECTED!!!!!!!!!!!"
+	#TA pawprint is not verified. It should probably be verified somehow
+	#(would have to involve parsing $(id "$TA"))
+	read -p "TA pawprint: " TA
+	echo " "
+	read -s -p "Password: " password
+	#LIKE I'D EVER HARDCODE IT 
+	#One and only one TA should be responsible for the file 
+	#with the actual password.
+	HASH=$(echo "$password" | md5sum | cut -f1-32)
+	if [[ "$HASH" == "a62453e365b0a4530a3cacdccff8a0b1"* ]]
+	then
+		check=0
+	fi
+	while [ \( "$check" != 0 \) -a \( "$count" != 2 \) ]; 
+	do
+		echo " "
+		read -s -p "Incorrect password. Try again:" password
+		let count=count+1
+		HASH=$(echo "$password" | md5sum | cut -f1-32)
+		if [[ "$HASH" == "a62453e365b0a4530a3cacdccff8a0b1"* ]]
+		then
+			check=0
+		fi
+	done
+	if [ \( "$count" == 2 \) -a \( "$check" != 0 \) ]
+	then
+		echo " "
+		echo "Too many failed password attempts. Exiting..."
+		return 1
+	fi
+	
+	#This is case sensitive. I'm too lazy right now to figure out how 
+	#to convert whole string to uppercase or to verify correct string.
+	#Trust in your TAs I guess.
+	echo " "
+	read -p "Enter the section the student belongs to (e.g. CS1050G): " path
+	echo " "
+
+	path="$path/$ASSIGNMENT"
+
+	$(cp "$FILE" /home/submissions/override/"$path"/"$USER"_"$METADATA"_"$FILE" 2>> err);
+	$(chmod 773 /home/submissions/override/"$path"/"$USER"_"$METADATA"_"$FILE" 2>> err);
+	
+	echo "[ $USER ] $TA specified /override/$path as path" >> $LOGPATH
+	
+	if [[ -s err ]] 
+	then
+		log "FATAL" "err"
+		echo " "
+		echo "Something happened...find a plan C. Did you enter the correct values above?"
+		rm err
+		exit
+	fi
+
+	rm err	
+
+	echo "submission complete."
+	
+	return 0
+}
+
+log () 
+{
+case $1 in
+"INIT")
+	echo "[ $TIMESTAMP ] Beginning submission for $USER..." >> $LOGPATH
+	;; 
+"START")
+	echo "[ $USER ] Section identified as $SECTION." >> $LOGPATH
+	echo "[ $USER ] Class identified as $CLASS". >> $LOGPATH
+	echo "[ $USER ] Assignment identified as $ASSIGNMENT". >> $LOGPATH
+	;;
+"PARAM")
+	echo "[ $USER ] PARAMETER ERROR ($2)! Not accepting submission." >> $LOGPATH
+	;;
+"DEADLINE")
+	echo "[ $USER ] ERROR! Submission window for $ASSIGNMENT not open." >> $LOGPATH
+	echo "[ $USER ] Deadline was from ($2) to ($3)." >> $LOGPATH
+	;;
+"COMPILE")
+	echo "[ $USER ] WARNING! Code compiled with warnings. I will not accept this if $USER is 2050." >> $LOGPATH
+	echo "[ NOTE ] gcc says: " >> $LOGPATH
+	L=$(head compiletmp -n 2)
+	echo "$L " >> $LOGPATH
+	echo "[ END NOTE ]" >> $LOGPATH
+	;;
+"GROUP") 
+	echo "[ $USER ] WARNING: user not in a group yet. Initiating plan B..." >> $LOGPATH
+	;;
+"FATAL")
+	echo "[ $USER ] FATAL: a thing happened. Might or might not be bad." >> $LOGPATH
+	echo "[ NOTE ] OS says:" >> $LOGPATH
+	cat "$2" >> $LOGPATH
+	echo "[ END NOTE ]" >> $LOGPATH
+	;;
+"SUCCESS")
+	echo "[ $USER ] Submission successfully received!" >> $LOGPATH
+	echo "[ $USER ] File is now in $2" >> $LOGPATH
+	;;
+"OVERRIDE")
+	echo "[ $USER ] TA OVERRIDE DETECTED! STARTING SEQUENCE..." >> $LOGPATH
+	#This is kinda awkward cause it breaks the main purpose of this fxn (just echos). 
+	#But I do what I want. Also easier cause you need confirmation in the logs
+	#that it worked.
+	override 
+	result=$?
+	if [[ "$result" == 0 ]] 
+	then
+		echo "[ $USER ] ...success. File has been submitted." >> $LOGPATH
+	else
+		echo "[ $USER ] ...failed, probably too many password attampts. Exiting..." >> $LOGPATH
+	fi
+	exit 
+	;;
+esac
+}
+
+#tests the cmd line args for valid assignment and class keys. 
+#This fxn is called later.
+test ()
+{
+	CT=1
+	#well I guess I have to learn what parameter expansion is...
+	#this is magic. Apparently this must be done when passing arrays to fxns.
+	eval "declare -A V="${2#*=}
+	for c in "${!V[@]}"
+	do
+		if [[ "${V[$c]}" == "$1" ]] 
+		then
+			CT=0
+		fi
+	done
+	if [[ "$CT" == 1 ]]
+	then
+		echo "Invalid parameter: $1. Valid classes are: "
+		for c in "${!V[@]}" 
+		do
+			echo "	${V[$c]}"
+		done
+		log "PARAM" "$1"
+		exit	
+	fi
+}
+
+#IT BEGINS
+log "INIT"
+
+#The command syntax can be seen here. If the syntax is not
+#correct, nothing will work past this point. 
+#Rushing through this, so unclear if there is redundancy here. 
+if [ \( -z "$CLASS" \) -o \( -z "$ASSIGNMENT" \) -o \( -z "$FILE" \) -o \( "$#" -ne 3 \) ]
+then
+        echo "Param error: correct usage: submit <Class> <Assignment> <File>"
+        echo ""
+        echo "Example: submit CS2050 LAB1 file.c"
+        log "PARAM" "$@"
+		exit
+fi
+
+
+#INITIATE TA OVERRIDE
+#everything past this point is void. The fxn for override runs and the 
+#script ends.
+if [[ "$CLASS" = "TA" ]]
+then
+	log "OVERRIDE"
+fi
+
+#controls for people who aren't in their correct group. Happens if
+#students late enroll, switch sections, etc. Does not catch students doing makeups.
+
+#TAs should use the override to handle these students. 
+#HEAD TA MUST BE NOTIFIED IMMEDIATELY TO GET THIS FIXED.
+if [[ -z "$SECTION" ]]
+then
+	log "START"
+	log "GROUP"
+
+	echo "You are not registered to a section. An override might be needed."
+	echo "Contact your TA for submission instructions."
+	echo ""
+	echo "If you are submitting the prelab, you are allowed to ignore submission"
+	echo "until your account is fixed." 
+	
+	#TODO: make some sort of notification to a headTA so it's caught for sure?
+	exit
+fi
+
+
+#test the class parameter to make sure it's in the list of 
+#valid classes defined above
+test "$CLASS" "$(declare -p VALID_CLASSES)"
+
+#test assignment parameter the same way as done above. 
+test "$ASSIGNMENT" "$(declare -p VALID_ASSIGNMENTS)"
+
+#test file parameter just to see if it exists.
+if [[ ! -f "$FILE" ]] 
+then 
+	echo "File doesn't exist: $FILE. Check input file and try again."
+	log "PARAM" "$FILE"
+	exit
+fi
+
+#NOW THE FUN BEGINS
+log "START"
+
+#test for a valid submission time window. The time window
+#is controlled by the deadline values above, according to their
+#section. Values are given for closing time, and opening time is 
+#calculated in various places. 
+
+#HW has their own set of deadlines. There is no deadline on prelabs,
+#so those are taken always as long as the assignment key is there.
+
+if [[ "$ASSIGNMENT" == *"LAB"* ]] 
+then
+	if [[ "$ASSIGNMENT" != *"PRELAB"* ]]
+	then
+		#TODO: there must be a better way
+		#For now, convert all DTTMs to integers to get differences,
+		#then compare the difference.
+		#then CONVERT BACK TO DTTMs for logging purposes.
+		NOW=$(date)
+		NOW=$(date --date="$NOW" +%s)
+		LABDIFF=$(expr "$NOW" - "${DEADLINE[$SECTION]}")
+		D=$(date --date="@${DEADLINE[$SECTION]}" +"%D %l:%M:%S %p")
+		D2=$(expr "${DEADLINE[$SECTION]}" - 9000)
+		D3=$(date --date="@$D2" +"%D %l:%M:%S %p")
+	
+		if [[  "$LABDIFF" -gt 0 ]] 
+		then 
+			echo "Deadline for $ASSIGNMENT has passed. Unable to submit."
+			log "DEADLINE" "$D3" "$D"
+			exit
+		elif [[  "$LABDIFF" -lt -9000  ]]
+		then
+			echo "Submission window for $ASSIGNMENT has not opened yet. Unable to submit."
+			log "DEADLINE" "$D3" "$D"
+			exit
+		fi
+	fi
+elif [[ "$ASSIGNMENT" == *"HW"* ]]
+then
+	#TODO: there must be a better way
+	#See description above.
+	NOW=$(date)
+	NOW=$(date --date="$NOW" +%s)
+	HWDIFF=$(expr "$NOW" - "${HWDEADLINE[$CLASS]}")
+	D=$(date --date="@${HWDEADLINE[$CLASS]}" +"%D %l:%M:%S %p")		
+	
+	if [[  "$HWDIFF" -gt 0 ]] 
+	then 
+		echo "Deadline for $ASSIGNMENT has passed. Unable to submit."
+		log "DEADLINE" "UNDEF" "$D"
+		exit
+	fi
+fi
+
+#for CS2050, the code must compile using extra flags. 
+#This can be customized depending on the class. 
+if [[ "$CLASS" == "CS2050" ]]
+then
+	compile "$FILE" 2> compiletmp
+else
+	compile "$FILE" 2> compiletmp
+	
+	#for 1050, the below line is good enough
+	#for most of the semester. However, above defines
+	#the restrictions for when stuff gets harder.
+	#gcc "$FILE" -lm -g 2> compiletmp
+fi
+
+#tests to see what happened at compile time. 
+#The file "compiletmp" will be empty if compilation was 
+#successful. Otherwise there will be compile errors in it
+
+#For CS1050, this is okay. The compile errors will be noted in 
+#a special file and the submission will still be taken. 
+#For CS2050, the file will not be accepted. Those students' code
+#must compile successfully to submit. 
+if [[ -s compiletmp ]] 
+then 
+	if [[ "$CLASS" == "CS1050" ]]
+	then
+		#Normally, the compile errors are just logged.
+		#log "COMPILE"
+		#rm compiletmp
+
+		#However, there comes a time where all students must 
+		#get it right. It's a harsh world out there.
+		echo "Code doesn't compile using the required parameters. Fix your code and try again."
+		echo "(Use 'compile <filename>' instead of 'gcc <filename>')"
+		log "COMPILE"
+		rm compiletmp
+		exit
+	else
+		echo "Code doesn't compile using the required parameters. Fix your code and try again."
+		log "COMPILE"
+		rm compiletmp
+		exit
+	fi
+fi
+
+#default path for saving the submission. 
+#All folders are set up except for the user folder at the end.
+#That is created below when student submits for the first time. 
+SAVEPATH="/home/submissions/$CLASS/$ASSIGNMENT/$SECTION/$USER"
+
+if [[ ! -d "$SAVEPATH" ]]
+then
+		$(mkdir "$SAVEPATH" 2>> err)
+	echo "[ $USER ] Creating directory for first-time submission from $USER..." >> $LOGPATH
+fi
+$(cp "$FILE" "$SAVEPATH"/"$METADATA"_"$FILE" 2>> err); 
+$(chmod 770 "$SAVEPATH"/"$METADATA"_"$FILE" 2>> err);
+
+#If failure, put submission into a directory further up where 
+#there's been confirmation that it works for all students.
+
+#Slight chance of failure, but always good to check. 
+#You never know...
+if [[ -s err ]] 
+then
+	#NOTE: this is not checked by the fetch. That should probably change.
+	log "FATAL" "err"
+	SAVEPATH="/home/submissions/$CLASS/$ASSIGNMENT"
+	$(cp "$FILE" "$SAVEPATH"/"$USER"_"$METADATA"_"$FILE" 2>> err2);
+	$(chmod 770 "$SAVEPATH"/"$USER"_"$METADATA"_"$FILE" 2>> err2);
+	#If plan B fails, we have a bigger problem. This should never happen.
+	#Thus, just bomb. Don't even try submitting somewhere else.
+	if [[ -s err2 ]] 
+	then 
+		echo "A fatal error has occurred. Contact your TA."
+		#TAs should consult the logs for details
+		log "FATAL" "err2"
+		rm err
+		rm err2
+		exit
+	fi
+	rm err2
+fi 
+
+rm err
+
+#This would be where a receipt is generated and outputted to user. 
+echo "submission complete."
+
+log "SUCCESS" "$SAVEPATH"
+
+exit
