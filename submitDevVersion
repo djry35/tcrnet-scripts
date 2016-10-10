@@ -67,7 +67,7 @@ VALID_CLASSES[1]="CS1050"
 #TODO: automate this?
 #For now, just uncomment/add and comment out/delete pieces that aren't needed. 
 #Don't crowd it up with all lab/HW/prelab combinations. We'll automate this later. 
-VALID_ASSIGNMENTS[0]="LAB7"
+#VALID_ASSIGNMENTS[0]="LAB7"
 VALID_ASSIGNMENTS[1]="PRELAB7"
 VALID_ASSIGNMENTS[2]="HW2"
 
