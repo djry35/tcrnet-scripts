@@ -1,0 +1,33 @@
+***** = Priority (1 start = less priority)
+
+****Figure out how to handle submissions with absolute file paths specified
+
+*****Give feedback to user in some sort of receipt
+	This will help when searching logs, can just grep for receipt
+
+**Give TAs power to access prelabs, but nothing else
+	Script to fetch them
+
+**Give TAs power to fetch their own lab sections once headTA authorizes
+	Will require some thought
+
+Modularize submit command
+	Have all CS2050 requirements in a script, all CS1050 reqs in script, etc
+	Have submit run those scripts and wait for response before submitting
+	This allows for easy integration with other classes if desired
+
+Figure out a way to test for memory leaks on submit
+	You'd have to parse through valgrind output....ew
+
+Automate change of dates (and change of assignment keys?)
+	JEREMY WHY
+
+Automate archive of logs
+
+Make better logs?
+
+Get purge through to /home/submissions
+
+*****Figure out how to handle zip file submissions (for makefiles - CS2050)
+
+*****************Create symlinks for headTAs on the /home/submissions dir
