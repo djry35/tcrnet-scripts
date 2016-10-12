@@ -15,3 +15,10 @@ GOTTEN ALL UPDATES FROM THE REPO OR YOU MIGHT BREAK THINGS.
 Then you have 300 students yelling at you about breaking things.
 
 And that sucks.
+
+
+Also, only Andrew and Daniel can push the dev submit into the current submit script
+for students to use, because they're head TAs. This will change if someone else
+should be designated as "head TA". 
+
+Above is also true for most of the scripts involving modifications to /home/submissions.
