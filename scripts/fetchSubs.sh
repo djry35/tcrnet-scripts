@@ -31,7 +31,7 @@ do
 	for j in $(cat "$i")
 	do
 		let COUNT=1
-		for k in $(find ~/submissions/"${2}"/"${1}"/"${i}"/"${j}" -name "*.c")
+		for k in $(find /home/submissions/"${2}"/"${1}"/"${i}"/"${j}" -name "*.c")
 		do
 			cp "${k}" ./"$j"_"$COUNT".c
 			zip -q "$i"_"$1".zip "$j"_"$COUNT".c
@@ -41,7 +41,7 @@ do
 		done
 		
 		let COUNT=1
-		for k in $(find ~/submissions/override/"${i}"/"${1}" -name "${j}*.c")
+		for k in $(find /home/submissions/override/"${i}"/"${1}" -name "${j}*.c")
 		do
 			cp "${k}" ./"$j"_"$COUNT".c
 			#strangly enough, "$i" has a './' in front of the path. Not sure how to get 
