@@ -1,4 +1,7 @@
 # tcrnet-scripts
+---------------------------------------------------------------
+Instructions for those who might be managing this active system
+---------------------------------------------------------------
 
 READ THE DAMN README
 
